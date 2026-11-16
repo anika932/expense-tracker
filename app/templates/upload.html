@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Expense Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 15px; }
+    .success { background: #d4edda; padding: 10px; margin: 10px 0; }
+    .error { background: #f8d7da; padding: 10px; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>Expense Tracker</h1>
+
+  <nav><a href="/upload">Upload</a> | <a href="/dashboard">Dashboard</a></nav>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <h3>Upload bank statement (CSV)</h3>
+  <form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv">
+    <button type="submit">Upload</button>
+  </form>
+
+  <h3>Latest transactions</h3>
+  <table>
+    <tr><th>Date</th><th>Description</th><th>Amount</th><th>Category</th></tr>
+    {% for t in transactions %}
+    <tr>
+      <td>{{ t.date }}</td>
+      <td>{{ t.description }}</td>
+      <td>{{ t.amount }}</td>
+      <td>{{ t.category.name if t.category else "-" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No transactions yet.</td></tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

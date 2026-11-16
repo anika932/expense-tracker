@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Expense Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 15px; }
+    nav a { margin-right: 15px; }
+    .box { margin: 25px 0; }
+    #empty { color: #888; }
+    .ok { background: #d4edda; }
+    .warning { background: #fff3cd; }
+    .danger { background: #f8d7da; }
+    .alert { padding: 8px; margin: 6px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  <nav><a href="/upload">Upload</a> <a href="/dashboard">Dashboard</a> <a href="/budgets">Budgets</a></nav>
+
+  <p id="empty" style="display:none">No data yet. Upload a CSV first.</p>
+
+  <div id="content" style="display:none">
+    <label>Month:
+      <select id="monthSelect"></select>
+    </label>
+    <h2 id="total"></h2>
+    <div class="box">
+        <h3>Budget status</h3>
+        <div id="budgets"></div>
+    </div>
+
+    <div class="box">
+        <h3>Unusual transactions</h3>
+        <div id="unusual"></div>
+    </div>
+
+    <div class="box">
+      <h3>Spending by category</h3>
+      <canvas id="pieChart" height="120"></canvas>
+    </div>
+
+    <div class="box">
+      <h3>Monthly trend</h3>
+      <canvas id="barChart" height="120"></canvas>
+    </div>
+  </div>
+
+<script>
+let pieChart, barChart;
+
+async function loadInsights(month) {
+  const res = await fetch("/api/insights?month=" + month);
+  const data = await res.json();
+
+  const b = document.getElementById("budgets");
+  b.innerHTML = data.budgets.length ? "" : "No budgets set. Add some on the Budgets page.";
+  data.budgets.forEach(x => {
+    const d = document.createElement("div");
+    d.className = "alert " + x.level;
+    d.textContent = x.category + ": Rs " + x.spent.toFixed(2) + " of Rs " +
+      x.limit.toFixed(2) + " (" + x.percent + "%)";
+    b.appendChild(d);
+  });
+
+  const u = document.getElementById("unusual");
+  u.innerHTML = data.unusual.length ? "" : "No unusual transactions found.";
+  data.unusual.forEach(x => {
+    const d = document.createElement("div");
+    d.className = "alert warning";
+    d.textContent = x.date + " | " + x.description + " | Rs " + x.amount.toFixed(2) +
+      " (" + x.category + " average Rs " + x.average.toFixed(2) + ", z=" + x.z_score + ")";
+    u.appendChild(d);
+  });
+}
+
+async function load(month) {
+  const url = month ? "/api/summary?month=" + month : "/api/summary";
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (!data.selected) {
+    document.getElementById("empty").style.display = "block";
+    return;
+  }
+  document.getElementById("content").style.display = "block";
+
+  // month dropdown
+  const select = document.getElementById("monthSelect");
+  select.innerHTML = "";
+  data.months.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m; opt.textContent = m;
+    if (m === data.selected) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  loadInsights(data.selected);
+
+  // total
+  const total = data.categories.reduce((s, c) => s + c.total, 0);
+  document.getElementById("total").textContent =
+    "Total spent in " + data.selected + ": Rs " + total.toFixed(2);
+
+  // pie chart
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById("pieChart"), {
+    type: "doughnut",
+    data: {
+      labels: data.categories.map(c => c.category),
+      datasets: [{ data: data.categories.map(c => c.total) }]
+    }
+  });
+
+  // bar chart
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById("barChart"), {
+    type: "bar",
+    data: {
+      labels: data.trend.map(t => t.month),
+      datasets: [{ label: "Total spent (Rs)", data: data.trend.map(t => t.total) }]
+    }
+  });
+}
+
+document.getElementById("monthSelect").addEventListener("change", e => load(e.target.value));
+load();
+</script>
+</body>
+</html>
